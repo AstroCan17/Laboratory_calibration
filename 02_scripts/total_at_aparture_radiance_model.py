@@ -170,14 +170,19 @@ class TotalAtSensorRadiance:
         L_atmosphere = self.calculate_surface_reflected_atmosphere_scattered_component()
         L_path = self.calculate_path_radiance(wavelength)
         return L_surface + L_atmosphere + L_path
-    
 
+    def run_atmospheric_simulator(self):
+        # Initialize the TotalAtSensorRadiance class
+        total_radiance = TotalAtSensorRadiance()
+        
+        wavelength = 1666.2e-9  # Wavelength for methane absorption line
+        total_radiance_value = total_radiance.calculate_total_radiance(wavelength)
+        print("-" * 50)
+        print(f"Total radiance at sensor for wavelength {wavelength * 1e9:.2f} nm:{total_radiance_value:.2e} W/m^2/um/sr")
+        print("-" * 50)
+        return total_radiance_value
+        
 
 if __name__ == "__main__":
-    # Initialize the TotalAtSensorRadiance class
     total_radiance = TotalAtSensorRadiance()
-
-    # Calculate the total radiance at the sensor for a given wavelength
-    wavelength = 1666.2e-9  # Wavelength for methane absorption line
-    total_radiance_value = total_radiance.calculate_total_radiance(wavelength)
-    print(f"Total radiance at sensor for wavelength {wavelength * 1e9:.2f} nm: {total_radiance_value:.2e} W/m^2/um/sr")
+    total_radiance.run_atmospheric_simulator()
