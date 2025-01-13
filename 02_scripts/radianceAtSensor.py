@@ -1,5 +1,10 @@
 from Py6S import *
 import numpy as np
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+LOG = logging.getLogger(__name__)
 
 
 def calculate_total_irradiance(altitude, lambda_min, lambda_max, yaw_angle, roll_angle, pitch_angle):
@@ -33,7 +38,7 @@ def calculate_total_irradiance(altitude, lambda_min, lambda_max, yaw_angle, roll
     ])
 
     # Initial view vector (pointing along the x-axis)
-    v = np.array([1.0, 0.0, 0.0])
+    v = np.array([0.0, 0.0, 1.0])
 
     # Apply rotations: first roll, then pitch, then yaw
     v_rot = Rz @ (Ry @ (Rx @ v))
@@ -61,4 +66,7 @@ def calculate_total_irradiance(altitude, lambda_min, lambda_max, yaw_angle, roll
         s.run()
         total_irradiance += s.outputs.apparent_radiance
     L_lambda = total_irradiance * 1e-3  # Convert W/m²/sr/um to W/m²/sr/nm
+    LOG.info(f'Total irradiance: {L_lambda:.2f} W/m²/sr/nm\n'
+             f'View zenith angle: {view_zenith:.2f} degrees\n'
+             f'View azimuth angle: {view_azimuth:.2f} degrees')
     return L_lambda

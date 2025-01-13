@@ -19,8 +19,6 @@ class TheorySec2:
     def __init__(
         self,
         altitude_m=int,           # Satellite altitude [m] (e.g. 705 km)
-        off_nadir_deg=float,      # Off-nadir angle in the along-track direction [degrees]
-        # L_toa=float,              # TOA radiance [W / m^2 / sr / nm]
         t_int=float,              # Integration time [s]
         yaw_angle_deg = float,    # Yaw angle in degrees (rotation about the z-axis)
         roll_angle_deg = float,   # Roll angle in degrees (rotation about the x-axis)
@@ -41,11 +39,11 @@ class TheorySec2:
         
         # Satellite/orbit params
         self.altitude_m    = float(altitude_m)  # Satellite altitude [m]
-        self.off_nadir_deg = off_nadir_deg
+
         
         # Radiometric params
              
-        self.OE          = 0.6          # Optical efficiency [dimensionless] KTO design worst case scenario
+        self.OE          = 0.6          # Optical efficiency [dimensionless]   worst case scenario
         self.T           = temperature  # Detector temperature [°C]
         self.lambda_min  = float(1580)  # [nm] Minimum wavelength
         self.lambda_max  = float(1690)  # [nm] Maximum wavelength
@@ -58,16 +56,16 @@ class TheorySec2:
         self.read_noise_e      = 30       # [e- rms / pix]
         
         # Optic/detector
-        self.f_m         = 0.18               # [m] focal length KTO design
-        self.aperture_d = float(0.072)        # m   KTO design 
-        self.aperture_r = self.aperture_d / 2 # m   KTO design
+        self.f_m         = 0.18               # [m] focal length  
+        self.aperture_d = float(0.072)        # m     
+        self.aperture_r = self.aperture_d / 2 # m    
         self.pixel_pitch  = 15e-6              # [m]
 
         self.ifov =  0.15                     # corresponding to 100 meters across track
 
         self.fov_act = 20                     #  km across track
 
-            # Detector dimensions (640 x 512), but 2 pixels are dead referred product's manual 
+            # Detector dimensions (640 x 512), but 2 pixels are dead
         self.nx          = 638    # pixel count (across-track)
         self.ny          = 510     # pixel count (along-track)
 

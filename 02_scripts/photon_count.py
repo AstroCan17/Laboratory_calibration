@@ -1,5 +1,5 @@
 """
-Photon Count Simulator for C-Red NS Sensor
+Photon Count Simulator for  Sensor
 ------------------------------------------
 Developed by: Can Deniz Kaya
 Date: 2025-01-04
@@ -12,7 +12,7 @@ import numpy as np
 
 class PhotonCountSimulator: 
     """
-    This class models a C-Red NS sensor where only the along-track direction
+    This class models a  sensor where only the along-track direction
     (forward/backward motion) is off-nadir, while across-track (sideways)
     is kept at a nadir-like geometry. 
     """
@@ -80,7 +80,7 @@ class PhotonCountSimulator:
         
         # Radiometric params
         self.L_toa       = L_toa                 
-        self.OE          = 0.6          # Optical efficiency [dimensionless] KTO design worst case scenario
+        self.OE          = 0.6          # Optical efficiency [dimensionless]   worst case scenario
         self.lambda_min  = float(lambda_min_nm)
         self.lambda_max  = float(lambda_max_nm)
         self.delta_lambda_nm = (self.lambda_max - self.lambda_min)
@@ -92,7 +92,7 @@ class PhotonCountSimulator:
         self.read_noise_e      = 30       # [e- rms / pix]
         
         # Optic/detector
-        self.f_m         = 0.18               # [m] focal length KTO design
+        self.f_m         = 0.18               # [m] focal length  
         self.pixel_size  = 15e-6              # [m]
             # Detector dimensions (640 x 512), but 2 pixels are dead referred product's manual 
         self.nx          = 638    # pixel count (across-track)
@@ -301,7 +301,7 @@ class PhotonCountSimulator:
         float
             Solid angle in steradians [sr].
         """
-        aperture_diam = float(0.072) # m   KTO design 
+        aperture_diam = float(0.072) # m     
         r_ap = aperture_diam / 2.0
         return np.pi * (r_ap**2) / (slant_range_m**2)
     
