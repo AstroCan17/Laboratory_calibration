@@ -3,21 +3,29 @@ import numpy as np
 import radianceAtSensor as ras
 import math
 import pandas as pd
+import os 
+import interpolate_qe as iq
+import logging
 
+
+
+logging.basicConfig(level=logging.DEBUG)
+
+LOG =logging.getLogger("TheorySec2")    
 
 
 class TheorySec2:
     
     def __init__(
         self,
-        altitude_m=float,         # Satellite altitude [m] (e.g. 705 km)
+        altitude_m=int,           # Satellite altitude [m] (e.g. 705 km)
         off_nadir_deg=float,      # Off-nadir angle in the along-track direction [degrees]
-        L_toa=float,              # TOA radiance [W / m^2 / sr / nm]
+        # L_toa=float,              # TOA radiance [W / m^2 / sr / nm]
         t_int=float,              # Integration time [s]
-        o_optical_fwm = None,     # Optical system function that describes beam shaping and transmission
         yaw_angle_deg = float,    # Yaw angle in degrees (rotation about the z-axis)
         roll_angle_deg = float,   # Roll angle in degrees (rotation about the x-axis)
-        pitch_angle_deg = float   # Pitch angle in degrees (rotation about the y-axis)
+        pitch_angle_deg = float,  # Pitch angle in degrees (rotation about the y-axis)
+        temperature = int         # Detector temperature [°C]
 
     ):
 
@@ -32,13 +40,13 @@ class TheorySec2:
         self.R_earth = 6731e3         # Mean Earth radius [m]     
         
         # Satellite/orbit params
-        self.altitude_m    = float(altitude_m)
+        self.altitude_m    = float(altitude_m)  # Satellite altitude [m]
         self.off_nadir_deg = off_nadir_deg
         
         # Radiometric params
-        self.L_toa       = L_toa                 
+             
         self.OE          = 0.6          # Optical efficiency [dimensionless] KTO design worst case scenario
-
+        self.T           = temperature  # Detector temperature [°C]
         self.lambda_min  = float(1580)  # [nm] Minimum wavelength
         self.lambda_max  = float(1690)  # [nm] Maximum wavelength
         self.delta_lambda_nm = (self.lambda_max - self.lambda_min)
@@ -52,7 +60,7 @@ class TheorySec2:
         # Optic/detector
         self.f_m         = 0.18               # [m] focal length KTO design
         self.aperture_d = float(0.072)        # m   KTO design 
-        self.aperture_r = self.aparture_d / 2 # m   KTO design
+        self.aperture_r = self.aperture_d / 2 # m   KTO design
         self.pixel_pitch  = 15e-6              # [m]
 
         self.ifov =  0.15                     # corresponding to 100 meters across track
@@ -81,6 +89,17 @@ class TheorySec2:
 
         self.L_lambda = ras.calculate_total_irradiance(self.altitude_m, self.lambda_min, self.lambda_max, self.yaw_angle, self.roll_angle, self.pitch_angle)
 
+        # directories
+        self.spectral_responsivity_path = "D:/03_cdk_processing/07_hyperspectral_lab_cal/Laboratory_calibration/00_data/01_quantum_efficiency"
+        interpolated_file_name =  f'interpolated_data_{int(self.T)}.csv'
+        if not os.path.exists(self.spectral_responsivity_path+"/"+ interpolated_file_name):
+            self.interpolated_QE = iq.run_interpolation(self.T, self.spectral_responsivity_path)
+        else:
+            path = self.spectral_responsivity_path+"/"+ interpolated_file_name
+            LOG.info(f"Interpolated file already exists at {path}")
+            self.interpolated_QE = pd.read_csv(path)
+            self.wavelengths_common = self.interpolated_QE['Wavelength']
+            self.efficiencies_target = self.interpolated_QE['Efficiency']
         pass
 
 
@@ -292,60 +311,6 @@ class TheorySec2:
 
 
 
-    def get_spectral_responsivity(self, spectral_responsivity_path):
-        """
-        Import spectral responsivity data from the given CSV file.
-    
-        Parameters:
-        - spectral_responsivity_path: Path to the CSV file containing spectral responsivity data
-    
-        Returns:
-        - wavelengths: List of wavelengths in meters
-        - efficiencies: List of efficiencies corresponding to each wavelength
-        """
-        # Load the spectral responsivity data from CSV
-        df = pd.read_csv(spectral_responsivity_path, names=['Data'])
-        wavelengths = []
-        efficiencies = []
-        for data in df['Data']:
-            wavelength, efficiency = data.split(',')
-            wavelengths.append(float(wavelength) * 1e-9)  # Convert nm to meters
-            efficiencies.append(float(efficiency))  
-    
-        return wavelengths, efficiencies
-    
-    def interpolate_efficiencies(self, target_temperature=20):
-        """
-        Interpolate efficiencies for a target temperature based on data from 5 and 35 degrees.
-    
-        Parameters:
-        - target_temperature: Temperature to interpolate to (default is 20 degrees)
-    
-        Returns:
-        - wavelengths_common: List of common wavelengths
-        - efficiencies_target: List of interpolated efficiencies at the target temperature
-        """
-        # Load spectral responsivity data
-        wavelengths_5, efficiencies_5 = self.get_spectral_responsivity(self.spectral_responsivity_path_5)
-        wavelengths_35, efficiencies_35 = self.get_spectral_responsivity(self.spectral_responsivity_path_35)
-
-        # Find the common wavelength range between the two datasets
-        wavelengths_common = sorted(set(wavelengths_5).union(set(wavelengths_35)))
-    
-        # Interpolating the efficiencies at 5 and 35 degrees to cover the entire wavelength range
-        efficiency_interp_5 = interp1d(wavelengths_5, efficiencies_5, kind='cubic', fill_value="extrapolate")
-        efficiency_interp_35 = interp1d(wavelengths_35, efficiencies_35, kind='cubic', fill_value="extrapolate")
-    
-        # Calculate efficiencies for the common wavelengths
-        efficiencies_5_at_common = efficiency_interp_5(wavelengths_common)
-        efficiencies_35_at_common = efficiency_interp_35(wavelengths_common)
-    
-        # Interpolating to find spectral responsivity at the target temperature
-        efficiencies_target = efficiencies_5_at_common + (target_temperature - 5) / (35 - 5) * (efficiencies_35_at_common - efficiencies_5_at_common)
-    
-        return wavelengths_common, efficiencies_target
-    
-
 
     def calculate_photo_current(self,O, D_i, A_e, A_d, T):
         """
@@ -486,40 +451,42 @@ class TheorySec2:
 
     def I_d_example(T):
         return 1e-6 * np.exp(-T / 300)
+    
 
-    # Define the ranges for alpha, beta, and lambda
-    alpha_range = (0, np.pi)
-    beta_range = (0, np.pi)
-    lambda_range = (0, 1000)
 
-    # Define other parameters
-    A_e = 1.0  # m^2
-    A_d = 1.0  # m^2
-    T = 300  # K
-    t_int = 1.0  # s
-    N_o = 100  # e^-
-    g = 1.0  # unitless
-    w_y = 1e-6  # m
-    w_z = 1e-6  # m
-    delta_y = 1e-6  # m
-    delta_z = 1e-6  # m
+    # # Define the ranges for alpha, beta, and lambda
+    # alpha_range = (0, np.pi)
+    # beta_range = (0, np.pi)
+    # lambda_range = (0, 1000)
 
-    # Calculate the photo current
-    I_ph = calculate_photo_current(O_example, L_lambda_example, D_i, A_e, A_d, alpha_range, beta_range, lambda_range, T, w_y, w_z, delta_y, delta_z)
-    print(f"Photo current: {I_ph} e^- / s")
+    # # Define other parameters
+    # A_e = 1.0  # m^2
+    # A_d = 1.0  # m^2
+    # T = 300  # K
+    # t_int = 1.0  # s
+    # N_o = 100  # e^-
+    # g = 1.0  # unitless
+    # w_y = 1e-6  # m
+    # w_z = 1e-6  # m
+    # delta_y = 1e-6  # m
+    # delta_z = 1e-6  # m
 
-    # Calculate the dark current
-    I_d = calculate_dark_current(I_d_example, T)
-    print(f"Dark current: {I_d} e^- / s")
+    # # Calculate the photo current
+    # I_ph = calculate_photo_current(O_example, L_lambda_example, D_i, A_e, A_d, alpha_range, beta_range, lambda_range, T, w_y, w_z, delta_y, delta_z)
+    # print(f"Photo current: {I_ph} e^- / s")
 
-    # Calculate the total current
-    I_total = calculate_total_current(I_ph, I_d)
-    print(f"Total current: {I_total} e^- / s")
+    # # Calculate the dark current
+    # I_d = calculate_dark_current(I_d_example, T)
+    # print(f"Dark current: {I_d} e^- / s")
 
-    # Calculate the number of electrons generated
-    N_generated = calculate_electrons_generated(I_total, t_int)
-    print(f"Electrons generated: {N_generated} e^-")
+    # # Calculate the total current
+    # I_total = calculate_total_current(I_ph, I_d)
+    # print(f"Total current: {I_total} e^- / s")
 
-    # Calculate the digital signal
-    S = calculate_signal(N_generated, N_o, g)
-    print(f"Digital signal: {S} DN")
+    # # Calculate the number of electrons generated
+    # N_generated = calculate_electrons_generated(I_total, t_int)
+    # print(f"Electrons generated: {N_generated} e^-")
+
+    # # Calculate the digital signal
+    # S = calculate_signal(N_generated, N_o, g)
+    # print(f"Digital signal: {S} DN")
