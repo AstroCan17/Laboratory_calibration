@@ -88,11 +88,11 @@ class TheorySec2:
         self.yaw_angle = yaw_angle_deg
         self.roll_angle = roll_angle_deg
         self.pitch_angle = pitch_angle_deg
-        self.alpha_angle, self.beta_angle = aocs.AOCSController(self.yaw_angle, self.roll_angle, self.pitch_angle).compute_alpha_beta()
+        self.alpha_angle, self.beta_angle,self.zenith, self.azimuth = aocs.AOCSController(self.yaw_angle, self.roll_angle, self.pitch_angle).compute_alpha_beta()
 
         self.solar_z = solar_z
         self.solar_a = solar_a
-        self.L_lambda = ras.calculate_total_irradiance(self.altitude_m, self.lambda_min, self.lambda_max, self.solar_z,self.solar_a,self.alpha_angle, self.beta_angle)
+        self.L_lambda = ras.calculate_total_irradiance(self.altitude_m, self.lambda_min, self.lambda_max, self.solar_z,self.solar_a,self.zenith, self.azimuth)
 
         # directories
         self.spectral_responsivity_path = "D:/03_cdk_processing/07_hyperspectral_lab_cal/Laboratory_calibration/00_data/01_quantum_efficiency"
@@ -317,40 +317,3 @@ class TheorySec2:
         return 1e-6 * np.exp(-T / 300)
     
 
-
-    # # Define the ranges for alpha, beta, and lambda
-    # alpha_range = (0, np.pi)
-    # beta_range = (0, np.pi)
-    # lambda_range = (0, 1000)
-
-    # # Define other parameters
-    # A_e = 1.0  # m^2
-    # A_d = 1.0  # m^2
-    # T = 300  # K
-    # t_int = 1.0  # s
-    # N_o = 100  # e^-
-    # g = 1.0  # unitless
-    # w_y = 1e-6  # m
-    # w_z = 1e-6  # m
-    # delta_y = 1e-6  # m
-    # delta_z = 1e-6  # m
-
-    # # Calculate the photo current
-    # I_ph = calculate_photo_current(O_example, L_lambda_example, D_i, A_e, A_d, alpha_range, beta_range, lambda_range, T, w_y, w_z, delta_y, delta_z)
-    # print(f"Photo current: {I_ph} e^- / s")
-
-    # # Calculate the dark current
-    # I_d = calculate_dark_current(I_d_example, T)
-    # print(f"Dark current: {I_d} e^- / s")
-
-    # # Calculate the total current
-    # I_total = calculate_total_current(I_ph, I_d)
-    # print(f"Total current: {I_total} e^- / s")
-
-    # # Calculate the number of electrons generated
-    # N_generated = calculate_electrons_generated(I_total, t_int)
-    # print(f"Electrons generated: {N_generated} e^-")
-
-    # # Calculate the digital signal
-    # S = calculate_signal(N_generated, N_o, g)
-    # print(f"Digital signal: {S} DN")
