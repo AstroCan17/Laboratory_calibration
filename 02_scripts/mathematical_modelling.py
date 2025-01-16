@@ -106,7 +106,8 @@ class TheorySec2:
         # Approximate the quantum efficiency of the given wavelength
         qe_interp = interp1d(self.wavelengths_common, self.efficiencies_target, kind='cubic', fill_value="extrapolate")
         self.qe_lambda = qe_interp(self.lambda_)
-        LOG.info(f"Quantum efficiency at {self.lambda_} nm: % {(self.qe_lambda/100):.2f}")
+        self.qe_lambda = self.qe_lambda/100 # convert to percentage
+        LOG.info(f"Quantum efficiency at {self.lambda_} nm: % {self.qe_lambda:.2f}")
 
 
         plt.figure()
@@ -120,78 +121,6 @@ class TheorySec2:
         plt.show()
 
 
-
-
-    def euler_to_matrix(self, degrees=True):
-        """
-        roll, pitch, yaw sırasıyla x', y', z' eksenleri etrafındaki dönüş açıları.
-        Dönüş sırası: Rz(yaw) * Ry(pitch) * Rx(roll)  (intrinsic rotations)
-        
-        degrees=True ise açıların derece cinsinden verildiği varsayılır ve radyana çevrilir.
-        Geriye 3x3 boyutlu dönüş (rotasyon) matrisi döndürür.
-        """
-        if degrees:
-            roll  = np.deg2rad(self.roll_angle)
-            pitch = np.deg2rad(self.pitch_angle)
-            yaw   = np.deg2rad(self.yaw_angle)
-        
-        # Rx(roll)
-        Rx = np.array([[1,           0,            0],
-                    [0,  np.cos(roll), -np.sin(roll)],
-                    [0,  np.sin(roll),  np.cos(roll)]])
-        
-        # Ry(pitch)
-        Ry = np.array([[ np.cos(pitch), 0, np.sin(pitch)],
-                    [0,              1,             0],
-                    [-np.sin(pitch), 0, np.cos(pitch)]])
-        
-        # Rz(yaw)
-        Rz = np.array([[ np.cos(yaw), -np.sin(yaw), 0],
-                    [ np.sin(yaw),  np.cos(yaw), 0],
-                    [0,             0,           1]])
-        
-        # Toplam dönüş matrisi (Rz * Ry * Rx)
-        R = Rz @ Ry @ Rx
-        return R
-
-
-    def compute_alpha_beta(self,degrees=True):
-        """
-        Verilen roll, pitch, yaw açılarını kullanarak sensör boresight'ının
-        (varsayılan olarak x' ekseni yönünde) dünya/uçak koordinatlarındaki
-        vektörünü hesaplar. Ardından tezdeki (B.4) ve (B.5) eşitliklerine
-        dayanarak alpha (along-track) ve beta (across-track) açılarını bulur.
-        
-        Giriş: 
-        roll, pitch, yaw (derece veya radyan cinsinden, degrees parametresine göre)
-        Çıkış:
-        alpha, beta (derece cinsinden döndürülür, istenirse radyanda da kullanılabilir)
-        """
-        # Dönüş matrisi oluştur
-        R = self.euler_to_matrix(degrees=degrees)
-        
-        # Sensör boresight'ı varsayılan olarak z' ekseni yönünde (aşağı) kabul edelim.
-        v_s = np.array([0.0, 0.0, 1.0])
-        
-        # Dünya/uçak koordinatlarına dönüştürülmüş vektör
-        v_e = R @ v_s  # [x', y', z']^T
-        
-        # v_e[0] = x', v_e[1] = y', v_e[2] = z'
-        x_p, y_p, z_p = v_e
-        
-        # (B.5) eşitliğine göre: tan(alpha) = z'/x' => alpha = arctan2(z', x')
-        alpha_rad = np.arctan2(z_p, x_p)
-        
-        # (B.4) eşitliğine göre: beta = phi, 
-        # ancak tezdeki tan(phi) = z'/y' => beta = arctan2(z', y')
-        beta_rad = np.arctan2(z_p, y_p)
-        
-        if degrees:
-            alpha = np.rad2deg(alpha_rad)
-            beta  = np.rad2deg(beta_rad)
-            return alpha, beta
-        else:
-            return alpha_rad, beta_rad
 
 
 
@@ -379,12 +308,12 @@ class TheorySec2:
         x (float): Input value
 
         Returns:
-        int: 1 if |x| <= w/2, 0 otherwise
+        int: 1 if |x| > w/2, 0 otherwise
         """
-        return 1 if abs(x) <= w / 2 else 0
+        return 1 if abs(x) > w / 2 else 0
 
 
-    def D_i(self,lambda_, T, y, z, i, w_y, w_z, delta_y, delta_z):
+    def D_i(self):
         """
         FPA model D_i(lambda, T, y, z) based on equation (2.4).
 
@@ -402,28 +331,13 @@ class TheorySec2:
         Returns:
         float: FPA model value [e^- / photons]
         """
-        eta = self.interpolated_QE['Efficiency']
-        lambda_ = lambda_ * 1e-9
-        # find the qe of the given wavelength
-        eta_i = eta[eta['Wavelength'] == lambda_]
+        eta_i = self.qe_lambda  # Quantum efficiency at the given wavelength and temperature
+          
+ 
 
-        h = 6.62607015e-34  # Planck's constant [J s]
-        c = 3e8  # Speed of light [m/s]
-        return eta_i * (lambda_ * 1e-9) / (h * c) * self.sqcap(w_y, y - i * delta_y) * self.sqcap(w_z, z - i * delta_z)
+        return eta_i * (self.lambda_ * 1e-9) / (self.h_planck * self.c_light) * self.sqcap(self.w_y, y - i * self.pixel_pitch) * self.sqcap(self.w_z, z - i * self.pixel_pitch)
 
 
-    def sqcap(w, x):
-        """
-        Boxcar function sqcap_w(x) based on equation (2.5).
-
-        Parameters:
-        w (float): Width of the boxcar function
-        x (float): Input value
-
-        Returns:
-        int: 1 if |x| <= w/2, 0 otherwise
-        """
-        return 1 if abs(x) <= w / 2 else 0
 
     def calculate_dark_current(I_d, T):
         """

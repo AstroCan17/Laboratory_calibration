@@ -28,7 +28,7 @@ theory = TheorySec2(
 
 # Log the class attributes
 LOG.info(f"Altitude: {int(theory.altitude_m*1e-3)} km")
-LOG.info(f"Integration time: {theory.t_int} s")
+LOG.info(f"Integration time: {theory.t_int} ms")
 LOG.info(f"Yaw angle: {theory.yaw_angle} degrees")
 LOG.info(f"Roll angle: {theory.roll_angle} degrees")
 LOG.info(f"Pitch angle: {theory.pitch_angle} degrees")
