@@ -7,10 +7,12 @@ import interpolate_qe as iq
 import logging
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
+import attitude_control_system as aocs
 
 
+
+# Set up logging
 logging.basicConfig(level=logging.DEBUG)
-
 LOG =logging.getLogger("TheorySec2")    
 
 
@@ -23,8 +25,10 @@ class TheorySec2:
         yaw_angle_deg = float,    # Yaw angle in degrees (rotation about the z-axis)
         roll_angle_deg = float,   # Roll angle in degrees (rotation about the x-axis)
         pitch_angle_deg = float,  # Pitch angle in degrees (rotation about the y-axis)
-        temperature = int,         # Detector temperature [°C]
-        lambda_ = float           # Center wavelength for methane detection [nm]
+        temperature = int,        # Detector temperature [°C]
+        lambda_ = float,          # Center wavelength for methane detection [nm]
+        solar_z = float,          # Solar zenith angle
+        solar_a = float,          # Solar azimuth angle
 
     ):
 
@@ -84,20 +88,27 @@ class TheorySec2:
         self.yaw_angle = yaw_angle_deg
         self.roll_angle = roll_angle_deg
         self.pitch_angle = pitch_angle_deg
+        self.alpha_angle, self.beta_angle = aocs.AOCSController(self.yaw_angle, self.roll_angle, self.pitch_angle).compute_alpha_beta()
 
-        self.L_lambda = ras.calculate_total_irradiance(self.altitude_m, self.lambda_min, self.lambda_max, self.yaw_angle, self.roll_angle, self.pitch_angle)
+        self.solar_z = solar_z
+        self.solar_a = solar_a
+        self.L_lambda = ras.calculate_total_irradiance(self.altitude_m, self.lambda_min, self.lambda_max, self.solar_z,self.solar_a,self.alpha_angle, self.beta_angle)
 
         # directories
         self.spectral_responsivity_path = "D:/03_cdk_processing/07_hyperspectral_lab_cal/Laboratory_calibration/00_data/01_quantum_efficiency"
         interpolated_file_name =  f'interpolated_data_{int(self.T)}.csv'
         if not os.path.exists(self.spectral_responsivity_path+"/"+ interpolated_file_name):
-            LOG.info(f"Interpolated Quantum Efficieny does not exist at {self.spectral_responsivity_path}")
+            LOG.info(("-" * 50) + "\n"+
+                     f"Interpolated Quantum Efficieny does not exist at {self.spectral_responsivity_path}"
+                     + "\n" + ("-" * 50))
             self.interpolated_QE = iq.run_interpolation(self.T, self.spectral_responsivity_path)
             self.wavelengths_common = self.interpolated_QE['Wavelength']
             self.efficiencies_target = self.interpolated_QE['Efficiency']
         else:
             path = self.spectral_responsivity_path+"/"+ interpolated_file_name
-            LOG.info(f"Interpolated Quantum Efficieny already exists at {path}")
+            LOG.info(("-" * 50) + "\n"+
+                     f"Interpolated Quantum Efficieny already exists at {path}"
+                     + "\n" + ("-" * 50))
             self.interpolated_QE = pd.read_csv(path)
             self.wavelengths_common = self.interpolated_QE['Wavelength']
             self.efficiencies_target = self.interpolated_QE['Efficiency']
@@ -107,116 +118,21 @@ class TheorySec2:
         qe_interp = interp1d(self.wavelengths_common, self.efficiencies_target, kind='cubic', fill_value="extrapolate")
         self.qe_lambda = qe_interp(self.lambda_)
         self.qe_lambda = self.qe_lambda/100 # convert to percentage
-        LOG.info(f"Quantum efficiency at {self.lambda_} nm: % {self.qe_lambda:.2f}")
+        LOG.info(("-" * 50) + "\n"+
+                 f"Quantum efficiency at {self.lambda_} nm: {self.qe_lambda:.2f} [dimensionless]"
+                 + "\n" + ("-" * 50))
 
 
-        plt.figure()
-        plt.plot(self.wavelengths_common, self.efficiencies_target, label='Interpolated QE')
-        plt.scatter(self.lambda_, self.qe_lambda, color='red', label=f'Target wavelength: {self.lambda_} nm')
-        plt.xlabel('Wavelength [nm]')
-        plt.ylabel('Quantum Efficiency [%]')
-        plt.title(f'Interpolated QE at {self.T} °C')
-        plt.legend()
-        plt.grid()
-        plt.show()
+        # plt.figure()
+        # plt.plot(self.wavelengths_common, self.efficiencies_target, label='Interpolated QE')
+        # plt.scatter(self.lambda_, self.qe_lambda, color='red', label=f'Target wavelength: {self.lambda_} nm')
+        # plt.xlabel('Wavelength [nm]')
+        # plt.ylabel('Quantum Efficiency [%]')
+        # plt.title(f'Interpolated QE at {self.T} °C')
+        # plt.legend()
+        # plt.grid()
+        # plt.show()
 
-
-
-
-
-    # def compute_alpha_beta_from_yaw_roll(self):
-    #     """
-    #     Computes the along-track (alpha) and across-track (beta) angles in degrees 
-    #     from a satellite's line of sight (LoS), given yaw and roll angles (in degrees).
-
-    #     In this context:
-    #     - alpha (along-track) corresponds to how much the LoS deviates 
-    #         in the forward/backward (x-axis) direction of the satellite.
-    #     - beta (across-track) corresponds to the lateral (side-to-side) deviation 
-    #         in the satellite's y–z plane.
-
-    #     Parameters
-    #     ----------
-    #     yaw_deg : float
-    #         Yaw angle in degrees (rotation about the z-axis).
-    #     roll_deg : float
-    #         Roll angle in degrees (rotation about the x-axis).
-
-    #     Returns
-    #     -------
-    #     alpha_deg : float
-    #         Along-track angle in degrees.
-    #     beta_deg : float
-    #         Across-track angle in degrees.
-
-    #     Notes
-    #     -----
-    #     This function assumes pitch = 0 (i.e., no rotation about the y-axis). 
-    #     If you need to account for pitch, you can include an additional rotation matrix 
-    #     R_y(pitch) in the multiplication sequence and then compute alpha and beta 
-    #     in a similar manner.
-
-    #     Appendix B Reference:
-    #     ---------------------
-    #     In Appendix B of the thesis, a spherical coordinate system is introduced, 
-    #     where the angles alpha and beta are defined as follows:
-        
-    #     - beta is equivalent to the azimuth angle φ (across-track).
-    #     - alpha is the along-track angle, defined by the relationship 
-    #         tan(alpha) = (z') / (x'), or equivalently alpha = arctan2(z', x').
-        
-    #     There, x', y', and z' are the Cartesian coordinates obtained after applying 
-    #     the relevant rotation matrices (from roll, pitch, yaw) to the initial 
-    #     body-fixed coordinate system aligned with the satellite's nominal flight direction.
-        
-    #     For more details on the underlying mathematics, see Appendix B.1–B.9 of the thesis,
-    #     where the following are presented:
-    #     - (B.1)–(B.3): Cartesian-to-spherical coordinate transformations.
-    #     - (B.4)–(B.8): Definitions of α (along-track) and β (across-track).
-    #     - (B.9) : Additional trigonometric relationships used for α and β.
-    #     """
-    #     # 1) Dereceden radyana çevir
-    #     yaw_rad  = np.deg2rad(self.yaw_angle)
-    #     roll_rad = np.deg2rad(self.roll_angle)
-        
-    #     # 2) Roll matrisi R_x(roll)
-    #     #    roll pozitif ise x-ekseni etrafında saat yönünde (uçaktan bakınca)
-    #     Rx = np.array([
-    #         [1,            0,             0           ],
-    #         [0,  np.cos(roll_rad), -np.sin(roll_rad) ],
-    #         [0,  np.sin(roll_rad),  np.cos(roll_rad) ]
-    #     ])
-        
-    #     # 3) Yaw matrisi R_z(yaw)
-    #     #    yaw pozitif ise z-ekseni etrafında "sola dönme" kabulü
-    #     Rz = np.array([
-    #         [ np.cos(yaw_rad), -np.sin(yaw_rad),  0 ],
-    #         [ np.sin(yaw_rad),  np.cos(yaw_rad),  0 ],
-    #         [               0,                0,  1 ]
-    #     ])
-        
-    #     # 4) Başlangıç bakış vektörü (x-ekseni yönünde)
-    #     v = np.array([1.0, 0.0, 0.0])
-        
-    #     # 5) Dönüşleri uygula
-    #     #    "Önce roll, sonra yaw" sıralaması:
-    #     v_rot = Rz @ (Rx @ v)
-        
-    #     # 6) Dönen vektörden (x', y', z') değerlerini al
-    #     x_p, y_p, z_p = v_rot
-        
-    #     # 7) alpha ve beta hesapla
-    #     #    beta = arctan2(z', y')
-    #     beta_rad  = math.atan2(z_p, y_p)
-        
-    #     #    alpha = arctan2(z', x')
-    #     alpha_rad = math.atan2(z_p, x_p)
-        
-    #     # 8) Radyandan dereceye çevir
-    #     alpha_deg = np.rad2deg(alpha_rad)
-    #     beta_deg  = np.rad2deg(beta_rad)
-        
-    #     return alpha_deg, beta_deg
 
 
 

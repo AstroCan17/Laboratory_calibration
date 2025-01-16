@@ -1,6 +1,14 @@
 
 
 import numpy as np
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+__name__ = "AOCS Controller"
+LOG = logging.getLogger(__name__)
+
+
 
 class AOCSController:
     def __init__(self, roll_angle, pitch_angle, yaw_angle):
@@ -72,7 +80,16 @@ class AOCSController:
         if degrees:
             alpha = np.rad2deg(alpha_rad)
             beta = np.rad2deg(beta_rad)
+            LOG.info(("-" * 50) + "\n"+
+                     f"Along Track Alpha: {alpha:.2f} degrees\n"
+                     f"Across Track Beta: {beta:.2f} degrees\n"
+                     + ("-" * 50))
+            
             return alpha, beta
         else:
+            LOG.info(("-" * 50) + "\n"+
+                     f"Along Track Alpha: {alpha:.2f} radians\n"
+                     f"Across Track Beta: {beta:.2f} radians\n"
+                     +("-" * 50))
             return alpha_rad, beta_rad
 
