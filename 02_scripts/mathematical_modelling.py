@@ -1,4 +1,3 @@
-
 import numpy as np
 import radianceAtSensor as ras
 import math
@@ -6,7 +5,8 @@ import pandas as pd
 import os 
 import interpolate_qe as iq
 import logging
-
+from scipy.interpolate import interp1d
+import matplotlib.pyplot as plt
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -23,7 +23,8 @@ class TheorySec2:
         yaw_angle_deg = float,    # Yaw angle in degrees (rotation about the z-axis)
         roll_angle_deg = float,   # Roll angle in degrees (rotation about the x-axis)
         pitch_angle_deg = float,  # Pitch angle in degrees (rotation about the y-axis)
-        temperature = int         # Detector temperature [°C]
+        temperature = int,         # Detector temperature [°C]
+        lambda_ = float           # Center wavelength for methane detection [nm]
 
     ):
 
@@ -48,7 +49,7 @@ class TheorySec2:
         self.lambda_min  = float(1580)  # [nm] Minimum wavelength
         self.lambda_max  = float(1690)  # [nm] Maximum wavelength
         self.delta_lambda_nm = (self.lambda_max - self.lambda_min)
-        self.QE          = 0.18         # Quantum efficiency [dimensionless] for lambda_c_nm = 1666.2 nm
+        # self.QE          = 0.18         # Quantum efficiency [dimensionless] for lambda_c_nm = 1666.2 nm
         self.t_int       = t_int                # Integration time [s]
         
         # Noise params
@@ -75,8 +76,7 @@ class TheorySec2:
         self.delta_z = self.pixel_pitch         # [m] across-track pixel size
         
         # "center" wavelength in nm for methane detection
-        self.lambda_c_nm = 1666.2             # nm (e.g. for methane detection)
-
+        self.lambda_ = lambda_           # nm (e.g. for methane detection)
 
         # Optics Forward model parameters and functions
 
@@ -91,14 +91,34 @@ class TheorySec2:
         self.spectral_responsivity_path = "D:/03_cdk_processing/07_hyperspectral_lab_cal/Laboratory_calibration/00_data/01_quantum_efficiency"
         interpolated_file_name =  f'interpolated_data_{int(self.T)}.csv'
         if not os.path.exists(self.spectral_responsivity_path+"/"+ interpolated_file_name):
+            LOG.info(f"Interpolated Quantum Efficieny does not exist at {self.spectral_responsivity_path}")
             self.interpolated_QE = iq.run_interpolation(self.T, self.spectral_responsivity_path)
+            self.wavelengths_common = self.interpolated_QE['Wavelength']
+            self.efficiencies_target = self.interpolated_QE['Efficiency']
         else:
             path = self.spectral_responsivity_path+"/"+ interpolated_file_name
-            LOG.info(f"Interpolated file already exists at {path}")
+            LOG.info(f"Interpolated Quantum Efficieny already exists at {path}")
             self.interpolated_QE = pd.read_csv(path)
             self.wavelengths_common = self.interpolated_QE['Wavelength']
             self.efficiencies_target = self.interpolated_QE['Efficiency']
-        pass
+
+
+        # Approximate the quantum efficiency of the given wavelength
+        qe_interp = interp1d(self.wavelengths_common, self.efficiencies_target, kind='cubic', fill_value="extrapolate")
+        self.qe_lambda = qe_interp(self.lambda_)
+        LOG.info(f"Quantum efficiency at {self.lambda_} nm: % {(self.qe_lambda/100):.2f}")
+
+
+        plt.figure()
+        plt.plot(self.wavelengths_common, self.efficiencies_target, label='Interpolated QE')
+        plt.scatter(self.lambda_, self.qe_lambda, color='red', label=f'Target wavelength: {self.lambda_} nm')
+        plt.xlabel('Wavelength [nm]')
+        plt.ylabel('Quantum Efficiency [%]')
+        plt.title(f'Interpolated QE at {self.T} °C')
+        plt.legend()
+        plt.grid()
+        plt.show()
+
 
 
 
@@ -350,9 +370,21 @@ class TheorySec2:
         return I_ph
 
 
+    def sqcap(self,w, x):
+        """
+        Boxcar function sqcap_w(x) based on equation (2.5).
+
+        Parameters:
+        w (float): Width of the boxcar function
+        x (float): Input value
+
+        Returns:
+        int: 1 if |x| <= w/2, 0 otherwise
+        """
+        return 1 if abs(x) <= w / 2 else 0
 
 
-    def D_i(lambda_, T, y, z, i, w_y, w_z, delta_y, delta_z):
+    def D_i(self,lambda_, T, y, z, i, w_y, w_z, delta_y, delta_z):
         """
         FPA model D_i(lambda, T, y, z) based on equation (2.4).
 
@@ -370,10 +402,14 @@ class TheorySec2:
         Returns:
         float: FPA model value [e^- / photons]
         """
-        eta_i = np.exp(-lambda_ / 1000) * (1 + 0.01 * T)  # Example quantum efficiency model
+        eta = self.interpolated_QE['Efficiency']
+        lambda_ = lambda_ * 1e-9
+        # find the qe of the given wavelength
+        eta_i = eta[eta['Wavelength'] == lambda_]
+
         h = 6.62607015e-34  # Planck's constant [J s]
         c = 3e8  # Speed of light [m/s]
-        return eta_i * (lambda_ * 1e-9) / (h * c) * sqcap(w_y, y - i * delta_y) * sqcap(w_z, z - i * delta_z)
+        return eta_i * (lambda_ * 1e-9) / (h * c) * self.sqcap(w_y, y - i * delta_y) * self.sqcap(w_z, z - i * delta_z)
 
 
     def sqcap(w, x):

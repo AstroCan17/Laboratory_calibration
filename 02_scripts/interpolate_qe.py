@@ -28,7 +28,7 @@ class QeInterpolation:
         efficiencies = []
         for data in df['Data']:
             wavelength, efficiency = data.split(',')
-            wavelengths.append(float(wavelength) * 1e-9)  # Convert nm to meters
+            wavelengths.append(float(wavelength))  # Convert nm to meters
             efficiencies.append(float(efficiency))  
 
         return wavelengths, efficiencies
@@ -56,6 +56,10 @@ class QeInterpolation:
 
         wavelengths_5, efficiencies_5 = self.get_spectral_responsivity(spectral_responsivity_path_5)
         wavelengths_35, efficiencies_35 = self.get_spectral_responsivity(spectral_responsivity_path_35)
+        
+        #find the minimum and maximum temperature from the end of the file name
+        min_temp = int(spectral_responsivity_path_5.split("_")[-1].split(".")[0])
+        max_temp = int(spectral_responsivity_path_35.split("_")[-1].split(".")[0])
 
         # Find the common wavelength range between the two datasets
         wavelengths_common = sorted(set(wavelengths_5).union(set(wavelengths_35)))
@@ -69,20 +73,22 @@ class QeInterpolation:
         efficiencies_35_at_common = efficiency_interp_35(wavelengths_common)
 
         # Interpolating to find spectral responsivity at the target temperature
-        efficiencies_target = efficiencies_5_at_common + (target_temperature - 5) / (35 - 5) * (efficiencies_35_at_common - efficiencies_5_at_common)
+        efficiencies_target = efficiencies_5_at_common + (target_temperature - min_temp) / (max_temp - min_temp) * (efficiencies_35_at_common - efficiencies_5_at_common)
+        
         # Check if the file already exists
+        interpolated_qe = {'Wavelength': wavelengths_common, 'Efficiency': efficiencies_target}
         output_file_name = f'interpolated_data_{int(self.T)}.csv'
         output_file = self.spectral_responsivity_path+"/"+ output_file_name
         if not os.path.exists(output_file):
             # Save the interpolated data
             df = pd.DataFrame({'Wavelength': wavelengths_common, 'Efficiency': efficiencies_target})
             df.to_csv(output_file, index=False)
-        return wavelengths_common, efficiencies_target
+        
+        return interpolated_qe
 
 
 def run_interpolation(T, spectral_responsivity_path):
     qe_interpolation = QeInterpolation(T, spectral_responsivity_path)
-
-    wavelengths_common, efficiencies_target = qe_interpolation.interpolate_efficiencies()
-    return wavelengths_common, efficiencies_target
+    
+    return qe_interpolation.interpolate_efficiencies()
     

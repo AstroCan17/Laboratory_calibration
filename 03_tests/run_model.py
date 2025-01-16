@@ -20,7 +20,8 @@ theory = TheorySec2(
     yaw_angle_deg=0,           # Yaw angle in degrees (rotation about the z-axis)
     roll_angle_deg=0,          # Roll angle in degrees (rotation about the x-axis)
     pitch_angle_deg=0,         # Pitch angle in degrees (rotation about the y-axis)
-    temperature=20  
+    temperature=20,            # Temperature [°C]
+    lambda_ = 1662.2,          # Wavelength [nm] for methane detection
 )
 
 
@@ -32,6 +33,7 @@ LOG.info(f"Yaw angle: {theory.yaw_angle} degrees")
 LOG.info(f"Roll angle: {theory.roll_angle} degrees")
 LOG.info(f"Pitch angle: {theory.pitch_angle} degrees")
 LOG.info(f"Temperature: {theory.T} °C")
+LOG.info(f"Selected Methane Wavelength: {theory.lambda_} nm")
 
 
 
