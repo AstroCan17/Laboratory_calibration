@@ -1,4 +1,4 @@
-# Satellite Sensor Simulation
+# Laboratory Calibration Theory Based Sim and Optics Sensor Modelling
 
 A Python-based simulation framework for modeling satellite-based methane detection sensors.
 
