@@ -7,7 +7,7 @@ logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger(__name__)
 
 
-def calculate_total_irradiance(altitude, lambda_min, lambda_max,solar_z_inp,solar_a_inp,view_zenith, view_azimuth):
+def calculate_total_irradiance(altitude,isrf_fwhm, lambda_min, lambda_max,solar_z_inp,solar_a_inp,view_zenith, view_azimuth):
     
     s = SixS()
     s.geometry = Geometry.User()
@@ -26,20 +26,20 @@ def calculate_total_irradiance(altitude, lambda_min, lambda_max,solar_z_inp,sola
     s.geometry.view_a = view_azimuth  # View azimuth angle
 
     s.altitudes.set_sensor_satellite_level()
-    s.altitudes.set_target_custom_altitude(altitude / 1000)  # Convert to km
+    s.altitudes.set_target_custom_altitude(altitude/1000)  # Convert to km
     lambda_min = lambda_min * 1e-3  # Convert to um
     lambda_max = lambda_max * 1e-3  # Convert to um
+    isrf_fwhm = isrf_fwhm * 1e-3  # Convert to um
 
-    total_irradiance = 0
+    s.aero_profile = AeroProfile.PredefinedType(AeroProfile.Continental)
+    wavelengths, values = SixSHelpers.Wavelengths.run_wavelengths(s, np.arange(lambda_min, lambda_max, isrf_fwhm), output_name='pixel_radiance')
 
-    for wavelength in range(int(lambda_min), int(lambda_max) + 1):
-        s.wavelength = Wavelength(wavelength)
-        s.run()
-        total_irradiance += s.outputs.apparent_radiance
-    L_lambda = total_irradiance * 1e-3  # Convert W/m²/sr/um to W/m²/sr/nm
-    LOG.info(("-" * 50) + "\n"+
-             f'Total irradiance: {L_lambda:.2f} W/m²/sr/nm\n'
+    SixSHelpers.Wavelengths.plot_wavelengths(wavelengths, values, r" At - sensor Spectral Radiance ( $W / m ^2\!/\mu m$ ) " ) 
+
+
+    LOG.info(("-" * 50) + "\n"+                
+            #  f'Total irradiance: {L_lambda:.2f} W/m²/sr/nm\n'
              f'View zenith angle: {view_zenith:.2f} degrees\n'
              f'View azimuth angle: {view_azimuth:.2f} degrees'
              + "\n" + ("-" * 50))
-    return L_lambda
+    return wavelengths, values

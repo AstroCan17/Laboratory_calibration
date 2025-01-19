@@ -69,6 +69,7 @@ class TheorySec2:
         self.ifov =  0.15                     # corresponding to 100 meters across track
 
         self.fov_act = 20                     #  km across track
+        self.isrf_fwhm = 0.9                  # nm - bandwidth spacing
 
             # Detector dimensions (640 x 512), but 2 pixels are dead
         self.nx          = 638    # pixel count (across-track)
@@ -79,12 +80,11 @@ class TheorySec2:
         self.delta_y = self.pixel_pitch          # [m] along-track pixel size
         self.delta_z = self.pixel_pitch          # [m] across-track pixel size
         
-        # "center" wavelength in nm for methane detection
+        # wavelength in nm for methane detection
         self.lambda_ = lambda_           # nm (e.g. for methane detection)
 
         # Optics Forward model parameters and functions
 
-        # self.o_optical() = o_optical_fwm
         self.yaw_angle = yaw_angle_deg
         self.roll_angle = roll_angle_deg
         self.pitch_angle = pitch_angle_deg
@@ -92,7 +92,7 @@ class TheorySec2:
 
         self.solar_z = solar_z
         self.solar_a = solar_a
-        self.L_lambda = ras.calculate_total_irradiance(self.altitude_m, self.lambda_min, self.lambda_max, self.solar_z,self.solar_a,self.zenith, self.azimuth)
+        self.L_lambda = ras.calculate_total_irradiance(self.isrf_fwhm,self.altitude_m, self.lambda_min, self.lambda_max, self.solar_z,self.solar_a,self.zenith, self.azimuth)
 
         # directories
         self.spectral_responsivity_path = "D:/03_cdk_processing/07_hyperspectral_lab_cal/Laboratory_calibration/00_data/01_quantum_efficiency"
@@ -168,6 +168,7 @@ class TheorySec2:
         #             E_yz += O(alpha, beta, lambda_) * L_lambda(alpha, beta, lambda_)
 
         # E_yz *= A_e
+        
         E_yz = 0
         for i in range(len(self.wavelengths_common)):
             E_yz += self.optical_system_function() * self.wavelengths_common[i]
