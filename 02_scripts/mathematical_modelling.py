@@ -74,10 +74,10 @@ class TheorySec2:
         self.nx          = 638    # pixel count (across-track)
         self.ny          = 510     # pixel count (along-track)
 
-        self.w_y     = self.pixel_pitch*self.ny  # [m] along-track dimension
-        self.w_z     = self.pixel_pitch*self.nx  # [m] across-track dimension
-        self.delta_y = self.pixel_pitch         # [m] along-track pixel size
-        self.delta_z = self.pixel_pitch         # [m] across-track pixel size
+        self.w_y     = self.pixel_pitch*self.ny  # [m] ALT widths of pixels photosensitive area
+        self.w_z     = self.pixel_pitch*self.nx  # [m] ACT widths of pixels photosensitive area
+        self.delta_y = self.pixel_pitch          # [m] along-track pixel size
+        self.delta_z = self.pixel_pitch          # [m] across-track pixel size
         
         # "center" wavelength in nm for methane detection
         self.lambda_ = lambda_           # nm (e.g. for methane detection)
@@ -168,10 +168,10 @@ class TheorySec2:
         #             E_yz += O(alpha, beta, lambda_) * L_lambda(alpha, beta, lambda_)
 
         # E_yz *= A_e
-        E_yz = self.optical_system_function()* self.L_lambda
-
+        E_yz = 0
+        for i in range(len(self.wavelengths_common)):
+            E_yz += self.optical_system_function() * self.wavelengths_common[i]
         return E_yz
-
 
 
 
@@ -224,35 +224,29 @@ class TheorySec2:
         x (float): Input value
 
         Returns:
-        int: 1 if |x| > w/2, 0 otherwise
+        int: 1 if |x| <= w/2, 0 otherwise
         """
-        return 1 if abs(x) > w / 2 else 0
+        return 1 if abs(x) <= w / 2 else 0
 
 
-    def D_i(self):
+
+    def D_i(self, y, z):
         """
         FPA model D_i(lambda, T, y, z) based on equation (2.4).
-
-        Parameters:
-        lambda_ (float): Wavelength [nm]
-        T (float): Temperature [K]
-        y (float): y-coordinate [m]
-        z (float): z-coordinate [m]
-        i (int): Pixel index
-        w_y (float): Width of the pixel's photosensitive area along the y-axis [m]
-        w_z (float): Width of the pixel's photosensitive area along the z-axis [m]
-        delta_y (float): Pixel pitch along the y-axis [m]
-        delta_z (float): Pixel pitch along the z-axis [m]
-
+    
         Returns:
         float: FPA model value [e^- / photons]
         """
-        eta_i = self.qe_lambda  # Quantum efficiency at the given wavelength and temperature
-          
- 
-
-        return eta_i * (self.lambda_ * 1e-9) / (self.h_planck * self.c_light) * self.sqcap(self.w_y, y - i * self.pixel_pitch) * self.sqcap(self.w_z, z - i * self.pixel_pitch)
-
+        self.wavelengths_common = self.interpolated_QE['Wavelength']
+        self.efficiencies_target = self.interpolated_QE['Efficiency']
+        D_i = 0
+        for i in range(len(self.wavelengths_common)):
+            eta_i = self.efficiencies_target[i]
+            D_i = (eta_i*self.wavelengths_common[i])/ (self.h_planck * self.c_light) *\
+                self.sqcap(self.w_y, y) *\
+                self.sqcap(self.w_z, z)
+            D_i += D_i
+        return D_i
 
 
     def calculate_dark_current(I_d, T):

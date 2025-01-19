@@ -22,8 +22,8 @@ theory = TheorySec2(
     pitch_angle_deg=0,         # Pitch angle in degrees (rotation about the y-axis)
     temperature=20,            # Temperature [°C]
     lambda_ = 1662.2,          # Wavelength [nm] for methane detection
-    solar_z = 0.0,               # Solar zenith angle
-    solar_a = 0.0,               # Solar azimuth angle
+    solar_z = 0.0,             # Solar zenith angle
+    solar_a = 0.0,             # Solar azimuth angle
 )
 
 
