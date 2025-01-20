@@ -24,14 +24,6 @@ This project provides tools to simulate and analyze:
   - `total_at_aparture_radiance_model.py` - Aperture radiance model
 - `03_tests/` - Test scripts and validation tools
 
-## Installation
-
-1. Clone this repository
-2. Install required dependencies:
-```bash
-pip install numpy scipy pandas matplotlib Py6S
-```
-
 ## Example Usage
 
 ```python
@@ -39,10 +31,10 @@ from mathematical_modelling import TheorySec2
 
 # Initialize simulation
 theory = TheorySec2(
-    altitude_m=500e3,          # Altitude in meters
-    t_int=400,                 # Integration time in seconds
+    altitude_m=500,            # Altitude in km
+    t_int=400,                 # Integration time in ms
     temperature=20,            # Temperature in Celsius
-    lambda_=1662.2,           # Wavelength for methane detection in nm
+    lambda_=1662.2,            # Wavelength for methane detection in nm
 )
 
 # Run calculations
