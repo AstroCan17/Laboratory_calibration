@@ -2,14 +2,25 @@
 from scipy.interpolate import interp1d
 import pandas as pd
 import os 
+import matplotlib.pyplot as plt
+import logging
+
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+__name__ = "Quantum Efficiency Interpolation"
+LOG = logging.getLogger(__name__)
 
 
 
 class QeInterpolation:
-    def __init__(self, T, spectral_responsivity_path):
+    def __init__(self, T, spectral_responsivity_path,lambda_min,lambda_max,outputname):
         self.T = T
         self.spectral_responsivity_path = spectral_responsivity_path
-        pass
+        self.lambda_min = float(lambda_min)
+        self.lambda_max  = float(lambda_max)
+        self.outputname = outputname
+      
             
     def get_spectral_responsivity(self,spectral_responsivity_path):
         """
@@ -87,8 +98,54 @@ class QeInterpolation:
         return interpolated_qe
 
 
-def run_interpolation(T, spectral_responsivity_path):
-    qe_interpolation = QeInterpolation(T, spectral_responsivity_path)
+    def filter_qe(self):
+        interpolated_qe = self.interpolate_efficiencies()
+        filtered_qe = {
+            'Wavelength': [w for w in interpolated_qe['Wavelength'] if self.lambda_min <= w <= self.lambda_max],
+            'Efficiency': [e for w, e in zip(interpolated_qe['Wavelength'], interpolated_qe['Efficiency']) if self.lambda_min <= w <= self.lambda_max]
+        }
+        # save the filtered data
+        output_file_name = self.outputname
+        output_file = self.spectral_responsivity_path+"/"+ output_file_name
+        if not os.path.exists(output_file):
+            df = pd.DataFrame({'Wavelength': filtered_qe['Wavelength'], 'Efficiency': filtered_qe['Efficiency']})
+            df.to_csv(output_file, index=False)
+        return filtered_qe
+
+
+
+def run_interpolation(T, spectral_responsivity_path,lambda_min,lambda_max,outputname,visualize=bool):
+    LOG.info(('-'*50)+'\n'+
+        f"Interpolating quantum efficiency data for temperature {T} °C")
+    qe_interpolation = QeInterpolation(T, spectral_responsivity_path,lambda_min,lambda_max,outputname)
     
-    return qe_interpolation.interpolate_efficiencies()
-    
+    interpolated_qe = qe_interpolation.interpolate_efficiencies()
+    LOG.info(f"Interpolated QE data saved to {spectral_responsivity_path}/interpolated_data_{int(T)}.csv")
+    filtered_qe = qe_interpolation.filter_qe()
+
+    LOG.info((('-'*50)+'\n')+
+             f"Quantum Efficiency data filtered for wavelength range {int(lambda_min)} - {int(lambda_max)} nm\n"+
+             f"Filtered QE data saved to {spectral_responsivity_path}/filtered_data_{int(T)}.csv\n"+('-'*50))   
+
+    if visualize:
+        # Visualize the interpolated QE
+        LOG.info('Visualizing the interpolated and filtered QE data')
+        plt.figure()
+        plt.plot(interpolated_qe['Wavelength'], interpolated_qe['Efficiency'], label='Interpolated QE')
+        plt.xlabel('Wavelength [nm]')
+        plt.ylabel('Efficiency [%]')
+        plt.title('Interpolated QE')
+        plt.legend()
+        plt.grid()
+
+        LOG.info('Visualizing the filtered QE data'+ "\n" + ("-" * 50))
+        plt.figure()
+        plt.plot(filtered_qe['Wavelength'], filtered_qe['Efficiency'], label='Filtered QE')
+        plt.xlabel('Wavelength [nm]')
+        plt.ylabel('Efficiency [%]')
+        plt.title('Filtered QE')
+        plt.legend()
+        plt.grid()
+        plt.show()
+    return filtered_qe
+

@@ -11,6 +11,7 @@ class AOCSController:
         self.roll_angle = roll_angle
         self.pitch_angle = pitch_angle
         self.yaw_angle = yaw_angle
+        
 
     def euler_to_matrix_ned(self, degrees=True):
         """

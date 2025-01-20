@@ -96,22 +96,25 @@ class TheorySec2:
 
         # directories
         self.spectral_responsivity_path = "D:/03_cdk_processing/07_hyperspectral_lab_cal/Laboratory_calibration/00_data/01_quantum_efficiency"
-        interpolated_file_name =  f'interpolated_data_{int(self.T)}.csv'
-        if not os.path.exists(self.spectral_responsivity_path+"/"+ interpolated_file_name):
+
+        
+        filtered_file_name = f'filtered_data_{int(self.T)}_{int(self.lambda_min)}_{int(self.lambda_max)}nm.csv'
+
+        if not os.path.exists(self.spectral_responsivity_path+"/"+ filtered_file_name):
             LOG.info(("-" * 50) + "\n"+
-                     f"Interpolated Quantum Efficieny does not exist at {self.spectral_responsivity_path}"
+                     f"Filtered Quantum Efficieny does not exist at {self.spectral_responsivity_path}"
                      + "\n" + ("-" * 50))
-            self.interpolated_QE = iq.run_interpolation(self.T, self.spectral_responsivity_path)
-            self.wavelengths_common = self.interpolated_QE['Wavelength']
-            self.efficiencies_target = self.interpolated_QE['Efficiency']
+            self.filtered_QE = iq.run_interpolation(self.T, self.spectral_responsivity_path, self.lambda_min, self.lambda_max,filtered_file_name, visualize=True)
+            self.wavelengths_common = self.filtered_QE['Wavelength']
+            self.efficiencies_target = self.filtered_QE['Efficiency']
         else:
-            path = self.spectral_responsivity_path+"/"+ interpolated_file_name
+            path = self.spectral_responsivity_path+"/"+ filtered_file_name
             LOG.info(("-" * 50) + "\n"+
-                     f"Interpolated Quantum Efficieny already exists at {path}"
+                     f"Filtered Quantum Efficieny already exists at {path}"
                      + "\n" + ("-" * 50))
-            self.interpolated_QE = pd.read_csv(path)
-            self.wavelengths_common = self.interpolated_QE['Wavelength']
-            self.efficiencies_target = self.interpolated_QE['Efficiency']
+            self.filtered_QE = pd.read_csv(path)
+            self.wavelengths_common = self.filtered_QE['Wavelength']
+            self.efficiencies_target = self.filtered_QE['Efficiency']
 
 
         # Approximate the quantum efficiency of the given wavelength
@@ -123,15 +126,6 @@ class TheorySec2:
                  + "\n" + ("-" * 50))
 
 
-        # plt.figure()
-        # plt.plot(self.wavelengths_common, self.efficiencies_target, label='Interpolated QE')
-        # plt.scatter(self.lambda_, self.qe_lambda, color='red', label=f'Target wavelength: {self.lambda_} nm')
-        # plt.xlabel('Wavelength [nm]')
-        # plt.ylabel('Quantum Efficiency [%]')
-        # plt.title(f'Interpolated QE at {self.T} °C')
-        # plt.legend()
-        # plt.grid()
-        # plt.show()
 
 
 
@@ -168,7 +162,7 @@ class TheorySec2:
         #             E_yz += O(alpha, beta, lambda_) * L_lambda(alpha, beta, lambda_)
 
         # E_yz *= A_e
-        
+
         E_yz = 0
         for i in range(len(self.wavelengths_common)):
             E_yz += self.optical_system_function() * self.wavelengths_common[i]

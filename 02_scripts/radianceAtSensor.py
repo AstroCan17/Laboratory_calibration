@@ -43,3 +43,5 @@ def calculate_total_irradiance(altitude,isrf_fwhm, lambda_min, lambda_max,solar_
              f'View azimuth angle: {view_azimuth:.2f} degrees'
              + "\n" + ("-" * 50))
     return wavelengths, values
+
+
